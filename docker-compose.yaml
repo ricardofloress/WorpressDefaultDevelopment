@@ -1,94 +1,93 @@
 version: '3.8'
 
 services:
+
   wordpress:
     image: wordpress:latest
     container_name: wordpress
+    env_file: .env
     depends_on:
       db:
         condition: service_healthy
     environment:
-      WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_HOST: db:${WORDPRESS_DB_NAME}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
     volumes:
-      - ./wordpress:/var/www/html
+      - ./${SRC_DATA_DIR}/wordpress:/var/www/html
     ports:
-      - "8080:80"
+      - ${WORDPRESS_LOCALHOST_PORT}:80
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/wp-login.php"]
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - wordpress_network
+
   db:
     image: mysql:5.7
     container_name: mysql
+    env_file: .env
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - db_data:/var/lib/mysql
+      - ./${SRC_DATA_DIR}/database:/var/lib/mysql
+    ports:
+      - ${MYSQL_LOCALHOST_PORT}:3306
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - wordpress_network
 
   wpcli:
     image: wordpress:cli
     container_name: wpcli
+    env_file: .env
     depends_on:
       wordpress:
         condition: service_healthy
     volumes:
-      - ./wordpress:/var/www/html
-    entrypoint: >
-      sh -c "
-        # Initial delay to ensure MySQL is ready
-        echo 'Waiting for MySQL and WordPress to be ready...';
-        sleep 20;
-
-        # Check and install WordPress if not installed
-        if ! wp core is-installed --path=/var/www/html --allow-root; then
-          echo 'WordPress not installed. Running installation...';
-          wp core install \
-            --url='http://localhost:8080' \
-            --title='My Awesome Store' \
-            --admin_user='admin' \
-            --admin_password='admin_password' \
-            --admin_email='admin@example.com' \
-            --skip-email \
-            --path=/var/www/html \
-            --allow-root;
-        fi
-
-        # Site Configuration
-        echo 'Configuring WordPress settings...';
-        wp option update blogname 'My Awesome Store' --path=/var/www/html --allow-root;
-        wp option update blogdescription 'The best place to shop' --path=/var/www/html --allow-root;
-        wp option update timezone_string 'America/New_York' --path=/var/www/html --allow-root;
-        wp option update permalink_structure '/%postname%/' --path=/var/www/html --allow-root;
-        
-        # Admin User
-        # echo 'Creating WordPress admin user...';
-        # wp user create admin admin@example.com --role=administrator --user_pass=admin_password --path=/var/www/html --allow-root;
-        # wp user update admin --display_name='Admin User' --path=/var/www/html --allow-root;
-      "
+      - ./${SRC_DATA_DIR}/wordpress:/var/www/html
+      - ./scripts/site-config.sh:/var/www/html/site-config.sh
+    command: /bin/sh ./site-config.sh
     environment:
-      WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-      HTTP_HOST: wordpress:80
-      WAIT_HOSTS: db:3306,wordpress:80
+      WORDPRESS_DB_HOST: db:${WORDPRESS_DB_NAME}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      HTTP_HOST: wordpress:${WORDPRESS_LOCALHOST_PORT:-80}
+      WAIT_HOSTS: db:${MYSQL_LOCALHOST_PORT:-3306},wordpress:${WORDPRESS_LOCALHOST_PORT:-80}
       WAIT_BEFORE_HOSTS: 30
       WAIT_AFTER_HOSTS: 15
       WAIT_HOSTS_TIMEOUT: 30
       WAIT_SLEEP_INTERVAL: 30
       WAIT_HOST_CONNECT_TIMEOUT: 30
+    networks:
+      - wordpress_network
 
-volumes:
-  db_data:
+  phpmyadmin:
+    container_name: phpmyadmin
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - ${PHPMYADMIN_LOCALHOST_PORT}:80
+    env_file: .env
+    environment:
+      PMA_HOST: db:${MYSQL_LOCALHOST_PORT:-3306}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - wordpress_network
+
+networks:
+  wordpress_network:
+    name: wordpress_network
