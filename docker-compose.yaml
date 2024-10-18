@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - ./wordpress:/var/www/html
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/wp-login.php"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+  db:
+    image: mysql:5.7
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  wpcli:
+    image: wordpress:cli
+    container_name: wpcli
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    volumes:
+      - ./wordpress:/var/www/html
+    entrypoint: >
+      sh -c "
+        # Initial delay to ensure MySQL is ready
+        echo 'Waiting for MySQL and WordPress to be ready...';
+        sleep 20;
+
+        # Check and install WordPress if not installed
+        if ! wp core is-installed --path=/var/www/html --allow-root; then
+          echo 'WordPress not installed. Running installation...';
+          wp core install \
+            --url='http://localhost:8080' \
+            --title='My Awesome Store' \
+            --admin_user='admin' \
+            --admin_password='admin_password' \
+            --admin_email='admin@example.com' \
+            --skip-email \
+            --path=/var/www/html \
+            --allow-root;
+        fi
+
+        # Site Configuration
+        echo 'Configuring WordPress settings...';
+        wp option update blogname 'My Awesome Store' --path=/var/www/html --allow-root;
+        wp option update blogdescription 'The best place to shop' --path=/var/www/html --allow-root;
+        wp option update timezone_string 'America/New_York' --path=/var/www/html --allow-root;
+        wp option update permalink_structure '/%postname%/' --path=/var/www/html --allow-root;
+        
+        # Admin User
+        # echo 'Creating WordPress admin user...';
+        # wp user create admin admin@example.com --role=administrator --user_pass=admin_password --path=/var/www/html --allow-root;
+        # wp user update admin --display_name='Admin User' --path=/var/www/html --allow-root;
+      "
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+      HTTP_HOST: wordpress:80
+      WAIT_HOSTS: db:3306,wordpress:80
+      WAIT_BEFORE_HOSTS: 30
+      WAIT_AFTER_HOSTS: 15
+      WAIT_HOSTS_TIMEOUT: 30
+      WAIT_SLEEP_INTERVAL: 30
+      WAIT_HOST_CONNECT_TIMEOUT: 30
+
+volumes:
+  db_data:
