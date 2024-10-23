@@ -23,6 +23,14 @@
         wp option update timezone_string 'America/New_York' --path=/var/www/html --allow-root;
         wp option update permalink_structure '/%postname%/' --path=/var/www/html --allow-root;
         
+        # Check if the WooCommerce installation variable is set to true
+        if [ "$WPCLI_ONLINE_STORE" = "true" ]; then
+            echo "Installing WooCommerce..."
+            wp plugin install woocommerce --activate --path="/var/www/html"
+        else
+            echo "WooCommerce installation skipped."
+        fi
+
         # Admin User
         # echo 'Creating WordPress admin user...';
         # wp user create admin admin@example.com --role=administrator --user_pass=admin_password --path=/var/www/html --allow-root;

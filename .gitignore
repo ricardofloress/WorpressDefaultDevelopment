@@ -1,0 +1,53 @@
+# Ignore everything except the wordpress directory in any location
+!*/wordpress/
+
+*/database/*
+
+# Ignore core WordPress files (in any path)
+*/wordpress/wp-admin/
+*/wordpress/wp-includes/
+
+# Ignore wp-content subdirectories that don't need to be tracked
+*/wordpress/wp-content/upgrade/
+*/wordpress/wp-content/uploads/
+*/wordpress/wp-content/cache/
+*/wordpress/wp-content/backup-*/ 
+*/wordpress/wp-content/wp-cache-config.php
+*/wordpress/wp-content/advanced-cache.php
+*/wordpress/wp-content/debug.log
+*/wordpress/wp-content/plugins/*.zip
+*/wordpress/wp-content/languages/*
+
+# Ignore all plugins and themes except custom ones (in any path)
+*/wordpress/wp-content/plugins/
+!*/wordpress/wp-content/plugins/my-plugin/   # <-- Add your custom plugins here
+*/wordpress/wp-content/themes/
+!*/wordpress/wp-content/themes/my-theme/     # <-- Add your custom themes here
+
+# Ignore OS or IDE specific files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Composer dependencies (if using Composer)
+*/wordpress/vendor/
+*/wordpress/composer.lock
+*/wordpress/composer.phar
+
+# Node modules (if using Node.js)
+*/wordpress/node_modules/
+
+# SFTP config
+*/wordpress/.sftp-config.json
+
+# Backup files
+*/wordpress/*.sql
+*/wordpress/*.tar.gz
+*/wordpress/*.zip
+
+# Temporary files
+*/wordpress/*.log
+*/wordpress/*.tmp
+*/wordpress/*.swp
+*/wordpress/*.swp~
